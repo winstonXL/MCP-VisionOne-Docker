@@ -2,12 +2,38 @@ services:
   vision-one-mcp:
     build: .
     image: vision-one-mcp-python:latest
-    ports:
-      - "8000:8000"
     env_file:
       - .env
+    expose:
+      - "8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
       interval: 30s
       timeout: 5s
       retries: 3
+    restart: unless-stopped
+
+  # Reverse proxy + automatic HTTPS. Only this service needs to be internet-facing;
+  # the app container is reachable only inside the compose network via `expose`.
+  #
+  # For local development without a public domain, comment this service out and add
+  # `ports: ["8000:8000"]` to vision-one-mcp instead (see README "Quickstart (local)").
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - vision-one-mcp
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN}
+      CADDY_EMAIL: ${CADDY_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

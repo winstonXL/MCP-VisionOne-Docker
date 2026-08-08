@@ -4,7 +4,7 @@ Run directly for local development:
 
     python -m vision_one_mcp.server
 
-Or via the Dockerfile / Helm chart in this repo for a real deployment.
+Or via the Dockerfile / docker-compose.yml in this repo for a real deployment.
 """
 
 from __future__ import annotations

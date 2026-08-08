@@ -10,7 +10,7 @@
 
   <rect x="0" y="0" width="980" height="560" fill="#F8F9FA" />
 
-  <text x="490" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#111827">vision-one-mcp-python: request flow</text>
+  <text x="490" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#111827">vision-one-mcp-python: request flow (Docker)</text>
 
   <!-- Zone 1: User environment -->
   <g>
@@ -23,33 +23,31 @@
     <text x="120" y="277" text-anchor="middle" font-size="10" fill="#6B7280">custom connector</text>
   </g>
 
-  <!-- Zone 2: Your infrastructure (Kubernetes) -->
+  <!-- Zone 2: Docker host -->
   <g>
     <rect x="260" y="70" width="420" height="420" rx="10" fill="#FFFFFF" stroke="#1A2B4A" stroke-width="1.5" stroke-dasharray="5,4" />
-    <text x="275" y="92" font-size="13" font-weight="bold" fill="#1A2B4A">YOUR INFRASTRUCTURE — KUBERNETES (EC2/k3s or customer cluster)</text>
+    <text x="275" y="92" font-size="13" font-weight="bold" fill="#1A2B4A">DOCKER HOST — EC2 instance or customer machine</text>
 
-    <rect x="290" y="150" width="150" height="60" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
-    <text x="365" y="176" text-anchor="middle" font-size="12" font-weight="bold" fill="#111827">Ingress</text>
-    <text x="365" y="192" text-anchor="middle" font-size="10" fill="#6B7280">TLS termination</text>
-
-    <rect x="290" y="240" width="150" height="60" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
-    <text x="365" y="266" text-anchor="middle" font-size="12" font-weight="bold" fill="#111827">Service</text>
-    <text x="365" y="282" text-anchor="middle" font-size="10" fill="#6B7280">ClusterIP :8000</text>
+    <rect x="290" y="150" width="150" height="70" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="365" y="176" text-anchor="middle" font-size="12" font-weight="bold" fill="#111827">Caddy container</text>
+    <text x="365" y="192" text-anchor="middle" font-size="10" fill="#6B7280">ports 80/443</text>
+    <text x="365" y="205" text-anchor="middle" font-size="10" fill="#6B7280">auto Let's Encrypt TLS</text>
 
     <rect x="500" y="195" width="160" height="90" rx="8" fill="#0E7490" fill-opacity="0.08" stroke="#0E7490" stroke-width="1.5" />
-    <text x="580" y="220" text-anchor="middle" font-size="12" font-weight="bold" fill="#0E7490">vision-one-mcp Pod</text>
+    <text x="580" y="220" text-anchor="middle" font-size="12" font-weight="bold" fill="#0E7490">vision-one-mcp</text>
     <text x="580" y="236" text-anchor="middle" font-size="10" fill="#374151">FastMCP · Streamable HTTP</text>
     <text x="580" y="250" text-anchor="middle" font-size="10" fill="#374151">Bearer-token middleware</text>
     <text x="580" y="264" text-anchor="middle" font-size="10" fill="#374151">read-only Vision One client</text>
+    <text x="580" y="278" text-anchor="middle" font-size="10" fill="#6B7280">(container, not host-exposed)</text>
 
-    <rect x="500" y="330" width="160" height="60" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
-    <text x="580" y="356" text-anchor="middle" font-size="12" font-weight="bold" fill="#111827">Secret / ConfigMap</text>
-    <text x="580" y="372" text-anchor="middle" font-size="10" fill="#6B7280">API key · bearer token · region</text>
+    <rect x="290" y="330" width="370" height="50" rx="8" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.5" />
+    <text x="475" y="350" text-anchor="middle" font-size="12" font-weight="bold" fill="#111827">.env</text>
+    <text x="475" y="366" text-anchor="middle" font-size="10" fill="#6B7280">VISION_ONE_API_KEY · MCP_BEARER_TOKEN · CADDY_DOMAIN</text>
 
     <!-- internal arrows -->
-    <line x1="365" y1="210" x2="365" y2="240" stroke="#4B5563" stroke-width="1.5" marker-end="url(#arrow-grey)" />
-    <line x1="440" y1="270" x2="500" y2="240" stroke="#4B5563" stroke-width="1.5" marker-end="url(#arrow-grey)" />
-    <line x1="580" y1="330" x2="580" y2="285" stroke="#4B5563" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-grey)" />
+    <line x1="440" y1="185" x2="500" y2="230" stroke="#4B5563" stroke-width="1.5" marker-end="url(#arrow-grey)" />
+    <text x="470" y="200" font-size="9" fill="#374151">reverse_proxy</text>
+    <line x1="475" y1="330" x2="475" y2="300" stroke="#4B5563" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-grey)" />
   </g>
 
   <!-- Zone 3: Vision One Cloud -->
@@ -69,7 +67,7 @@
   </g>
 
   <!-- Cross-zone arrows -->
-  <line x1="195" y1="255" x2="290" y2="180" stroke="#4B5563" stroke-width="2" marker-end="url(#arrow-grey)" />
+  <line x1="195" y1="255" x2="290" y2="185" stroke="#4B5563" stroke-width="2" marker-end="url(#arrow-grey)" />
   <text x="242" y="205" text-anchor="middle" font-size="10" fill="#374151">HTTPS 443</text>
   <text x="242" y="218" text-anchor="middle" font-size="10" fill="#374151">Authorization: Bearer &lt;token&gt;</text>
 

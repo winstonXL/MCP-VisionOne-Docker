@@ -10,8 +10,4 @@ dist/
 .env
 *.log
 
-# Never commit real secrets
-deploy/helm/vision-one-mcp/values-secret.yaml
-deploy/k3s/kubeconfig*
-
 .DS_Store

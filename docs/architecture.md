@@ -7,18 +7,22 @@
 - **Claude Desktop** — connects as a remote MCP custom connector over HTTPS. Sends an
   `Authorization: Bearer <token>` header on every request; has no direct knowledge of
   Vision One at all, only of the tools this server exposes.
-- **Ingress** — terminates TLS. Claude Desktop's custom connector will not accept a
-  self-signed certificate, so this needs a certificate from a publicly trusted CA (see
-  [`deploy/ec2/README.md`](../deploy/ec2/README.md) for the cert-manager/Let's Encrypt
-  setup used for the AWS-hosted instance).
-- **Service / Pod** — the actual `vision-one-mcp-python` container. Two layers inside:
+- **Caddy** — reverse proxy and TLS terminator, running as its own container. Claude
+  Desktop's custom connector will not accept a self-signed certificate, so this needs a
+  certificate from a publicly trusted CA — Caddy obtains and renews one automatically
+  from Let's Encrypt via the HTTP-01 challenge, as long as DNS for the configured
+  hostname points at the host (see [`deploy/ec2/README.md`](../deploy/ec2/README.md)).
+- **vision-one-mcp container** — the actual server. Two layers inside:
   1. `BearerAuthMiddleware` (plain ASGI middleware, checked before anything else,
-     `/healthz` excepted for kubelet probes) rejects any request that doesn't present
-     the configured shared secret.
+     `/healthz` excepted for the container healthcheck) rejects any request that
+     doesn't present the configured shared secret.
   2. `FastMCP` — registers the four read-only tools and speaks Streamable HTTP.
-- **Secret / ConfigMap** — the Vision One API key, the MCP bearer token, and the
-  region/base-URL config, injected as environment variables. Never baked into the image.
-- **Trend Vision One** — the actual data source. The pod calls out to
+  This container is never exposed directly to the host or the internet — only Caddy
+  publishes ports 80/443; the app is reachable solely through Caddy's internal
+  `reverse_proxy` over the Docker Compose network.
+- **`.env`** — the Vision One API key, the MCP bearer token, and region/domain config,
+  loaded as environment variables. Never baked into the image, never committed.
+- **Trend Vision One** — the actual data source. The container calls out to
   `api.<region>.xdr.trendmicro.com` with the Vision One API key as its own bearer token
   — a second, separate credential from the one Claude Desktop uses to talk to *this*
   server.
@@ -36,9 +40,10 @@ different jobs, because it's easy to conflate them:
    Intel data.
 
 Compromising one does not automatically expose the other — but this server does hold
-both secrets in memory, so the pod itself is the thing to lock down (least-privilege
-API key permissions, `readOnlyRootFilesystem`, non-root user — all set in the Helm
-chart's default `securityContext`).
+both secrets in memory, so the container itself is the thing to lock down: least-
+privilege API key permissions, a non-root user in the image (see `Dockerfile`), and
+never exposing the app port directly to the internet (Caddy is the only public-facing
+process).
 
 ## Why not Lambda / EventBridge / SNS here
 
@@ -48,8 +53,18 @@ That's still a reasonable design — for *that* problem. It doesn't fit *this* p
 Claude Desktop's remote MCP transport needs a long-lived, addressable HTTP endpoint
 that can hold a streaming connection open, which is a server model, not a
 function-invocation model. Lambda's 15-minute execution cap and non-persistent nature
-fight against that; a small always-on container (on Kubernetes, whether that's a k3s
-node on EC2 or a customer's own cluster) is the natural fit instead.
+fight against that; a small always-on container is the natural fit instead.
+
+## Why not Kubernetes (for now)
+
+An earlier pass at this also built out a Helm chart for deployment on a k3s cluster,
+with the idea of making it portable to customers running their own Kubernetes. That's
+parked for now in favor of getting the simpler Docker Compose + Caddy setup solid
+first — one container plus a reverse proxy is enough infrastructure to reason about
+while still learning the MCP/auth/deployment pieces. Kubernetes may come back later if
+there's a real need for it (multiple replicas, rolling updates, etc.); the app itself
+doesn't assume anything about its runtime, so re-introducing it later is mostly a
+matter of writing new manifests, not changing code.
 
 ## Read-only by design
 

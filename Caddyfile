@@ -1,0 +1,13 @@
+# Caddy automatically obtains and renews a Let's Encrypt certificate for the domain
+# below (HTTP-01 challenge over port 80, then serves HTTPS on 443) and reverse-proxies
+# everything to the app container. No nginx/certbot/cert-manager needed.
+#
+# CADDY_DOMAIN must be a real hostname with DNS already pointed at this host --
+# Claude Desktop's remote MCP custom connector will not accept a self-signed cert.
+{
+	email {$CADDY_EMAIL}
+}
+
+{$CADDY_DOMAIN} {
+	reverse_proxy vision-one-mcp:8000
+}

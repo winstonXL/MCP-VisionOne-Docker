@@ -1,7 +1,7 @@
 """Configuration loading for the Vision One MCP server.
 
-Everything is read from the environment (see .env.example). In Kubernetes these are
-populated from a Secret + ConfigMap by the Helm chart; locally, load a .env file.
+Everything is read from the environment (see .env.example). In Docker Compose these
+come from `env_file: .env`; locally, load a .env file the same way.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def load_settings() -> Settings:
     if not api_key or api_key == "changeme":
         raise ConfigError(
             "VISION_ONE_API_KEY is not set. Copy .env.example to .env (or set the "
-            "Kubernetes secret) and provide a real Vision One API key."
+            "container env var) and provide a real Vision One API key."
         )
 
     bearer_token = os.environ.get("MCP_BEARER_TOKEN", "")
