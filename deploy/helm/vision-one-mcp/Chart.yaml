@@ -1,0 +1,20 @@
+apiVersion: v2
+name: vision-one-mcp
+description: >
+  A read-only Python MCP server for Trend Vision One, exposed over Streamable HTTP
+  behind bearer-token auth. Deployable identically on a self-managed k3s cluster on
+  AWS EC2 or on any customer's own Kubernetes cluster.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/wphillips/vision-one-mcp-python
+sources:
+  - https://github.com/wphillips/vision-one-mcp-python
+keywords:
+  - mcp
+  - model-context-protocol
+  - trend-micro
+  - vision-one
+  - security
+maintainers:
+  - name: Winston Phillips

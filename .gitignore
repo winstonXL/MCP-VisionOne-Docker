@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+.env
+*.log
+
+# Never commit real secrets
+deploy/helm/vision-one-mcp/values-secret.yaml
+deploy/k3s/kubeconfig*
+
+.DS_Store

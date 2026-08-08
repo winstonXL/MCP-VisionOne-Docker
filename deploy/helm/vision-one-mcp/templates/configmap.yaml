@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "vision-one-mcp.fullname" . }}
+  labels:
+    {{- include "vision-one-mcp.labels" . | nindent 4 }}
+data:
+  VISION_ONE_REGION: {{ .Values.config.visionOneRegion | quote }}
+  {{- if .Values.config.visionOneBaseUrl }}
+  VISION_ONE_BASE_URL: {{ .Values.config.visionOneBaseUrl | quote }}
+  {{- end }}
+  MCP_HOST: "0.0.0.0"
+  MCP_PORT: {{ .Values.config.mcpPort | quote }}

@@ -1,0 +1,30 @@
+vision-one-mcp has been deployed.
+
+{{- if .Values.ingress.enabled }}
+It should become reachable at:
+
+  https://{{ .Values.ingress.host }}/mcp
+
+Check that DNS for {{ .Values.ingress.host }} points at your ingress controller's
+LoadBalancer/NodePort, and (if using cert-manager) that a Certificate has been issued:
+
+  kubectl get certificate
+{{- else }}
+Ingress is disabled. Reach the service from inside the cluster at:
+
+  http://{{ include "vision-one-mcp.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/mcp
+
+Port-forward for local testing:
+
+  kubectl port-forward svc/{{ include "vision-one-mcp.fullname" . }} 8000:{{ .Values.service.port }}
+{{- end }}
+
+Check pod status:
+
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl logs -l app.kubernetes.io/instance={{ .Release.Name }} -f
+
+Remember: Claude Desktop's custom connector requires a valid, publicly-trusted HTTPS
+certificate — self-signed certs will not validate. If this is an internal-only
+deployment for a customer without public DNS/cert-manager, see the "Fully internal /
+air-gapped deployments" section in deploy/helm/vision-one-mcp/README.md.
