@@ -103,10 +103,23 @@ async def _healthz(_request) -> JSONResponse:
 
 
 def build_app():
-    """Build the ASGI app: FastMCP's Streamable HTTP app, plus /healthz and bearer auth."""
+    """Build the ASGI app: FastMCP's Streamable HTTP app, plus /healthz and (optionally) bearer auth.
+
+    Auth is skipped entirely when MCP_REQUIRE_AUTH=false. That's needed for clients like
+    ChatGPT's Developer Mode, whose custom connectors only support OAuth or no-auth --
+    there's no way to hand it a static bearer token the way Claude Desktop's custom
+    connector accepts one. Only run this way on a network you trust.
+    """
     app = mcp.streamable_http_app()
     app.router.routes.insert(0, Route("/healthz", _healthz))
-    app.add_middleware(BearerAuthMiddleware, expected_token=settings.mcp_bearer_token)
+    if settings.require_auth:
+        app.add_middleware(BearerAuthMiddleware, expected_token=settings.mcp_bearer_token)
+    else:
+        logger.warning(
+            "MCP_REQUIRE_AUTH=false -- this server is accepting UNAUTHENTICATED requests. "
+            "Anyone who can reach it can read Vision One Workbench/Threat Intel data through "
+            "it. Only do this for local/trusted-network testing (e.g. ChatGPT Developer Mode)."
+        )
     return app
 
 

@@ -15,7 +15,8 @@
 - **vision-one-mcp container** — the actual server. Two layers inside:
   1. `BearerAuthMiddleware` (plain ASGI middleware, checked before anything else,
      `/healthz` excepted for the container healthcheck) rejects any request that
-     doesn't present the configured shared secret.
+     doesn't present the configured shared secret — *unless* `MCP_REQUIRE_AUTH=false`,
+     in which case this layer is skipped entirely (see "Auth is configurable" below).
   2. `FastMCP` — registers the four read-only tools and speaks Streamable HTTP.
   This container is never exposed directly to the host or the internet — only Caddy
   publishes ports 80/443; the app is reachable solely through Caddy's internal
@@ -44,6 +45,21 @@ both secrets in memory, so the container itself is the thing to lock down: least
 privilege API key permissions, a non-root user in the image (see `Dockerfile`), and
 never exposing the app port directly to the internet (Caddy is the only public-facing
 process).
+
+## Auth is configurable, because MCP clients disagree on what they support
+
+Claude Desktop's custom connectors can be configured with a static bearer token, which
+is what `BearerAuthMiddleware` was built around. ChatGPT's Developer Mode custom
+connectors cannot present a static token at all — only OAuth or no-auth. Rather than
+fork the app per client, `MCP_REQUIRE_AUTH` toggles the middleware on/off at startup:
+
+- `MCP_REQUIRE_AUTH=true` (default): the "Two independent trust boundaries" section
+  above applies as written.
+- `MCP_REQUIRE_AUTH=false`: the client ↔ server boundary disappears entirely — the
+  server accepts any request that reaches it. The server ↔ Vision One boundary (the
+  API key) is unaffected either way. This mode exists for testing against clients like
+  ChatGPT that can't do better yet; a real multi-client setup would eventually want
+  OAuth instead of this binary switch.
 
 ## Why not Lambda / EventBridge / SNS here
 

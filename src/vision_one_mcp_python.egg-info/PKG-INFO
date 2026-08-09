@@ -1,3 +1,20 @@
+Metadata-Version: 2.4
+Name: vision-one-mcp-python
+Version: 0.1.0
+Summary: From-scratch Python MCP server for Trend Vision One (read-only, learning project)
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: mcp[cli]<2,>=1.2
+Requires-Dist: httpx>=0.27
+Requires-Dist: python-dotenv>=1.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23; extra == "dev"
+Requires-Dist: respx>=0.21; extra == "dev"
+Dynamic: license-file
+
 # vision-one-mcp-python
 
 A from-scratch Python [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for
@@ -14,7 +31,7 @@ scoped to Docker (no Kubernetes for now).
 - **Language:** Python (using the official [`mcp`](https://github.com/modelcontextprotocol/python-sdk) SDK's `FastMCP`)
 - **Transport:** Streamable HTTP (required for remote/hosted MCP servers — Claude Desktop's custom connectors
   do not support stdio for remote servers)
-- **Auth:** Static bearer token by default (checked by a small ASGI middleware), or fully disabled via `MCP_REQUIRE_AUTH=false` for clients that can't present one (see [Connecting ChatGPT](#connecting-chatgpt-developer-mode) below)
+- **Auth:** Static bearer token, checked by a small ASGI middleware in front of the MCP app
 - **Scope (v0.1):** Read-only tools against two Vision One API domains:
   - **Workbench** — list alerts, get alert detail
   - **Threat Intelligence** — list Suspicious Object List entries, list Threat Intelligence Feed indicators
@@ -106,35 +123,6 @@ Once deployed behind real TLS (see [Deploying](#deploying) below):
 3. Advanced settings → set the bearer token you configured as the connector's auth header
    (`Authorization: Bearer <MCP_BEARER_TOKEN>`)
 
-Requires org/admin permission to add custom connectors in some Claude workspaces — if you don't have that,
-see the ChatGPT path below instead.
-
-## Connecting ChatGPT (Developer Mode)
-
-ChatGPT speaks the same Streamable HTTP MCP transport, so the server itself doesn't need to change — but its
-Developer Mode custom connectors only support **OAuth or no-auth**, not a static bearer token. There's no
-"advanced settings, paste a token" option like Claude Desktop has. For testing, run this server with auth
-switched off:
-
-```bash
-# in .env
-MCP_REQUIRE_AUTH=false
-# MCP_BEARER_TOKEN can be left blank; it's ignored
-```
-
-Then, in ChatGPT:
-
-1. Enable **Developer Mode**: Settings → Apps & Connectors → Advanced → Developer mode. (On an individual
-   paid plan this is self-service; on a work/Enterprise workspace, an admin may need to enable it first — the
-   same kind of restriction you may be hitting in Claude, so check this before going further.)
-2. Add a custom connector, pointing at `https://<your-host>/mcp`, authentication set to **No authentication**.
-3. ChatGPT should list this server's four read-only tools once connected.
-
-Running without auth means anyone who can reach the URL can call those tools — fine for a short-lived test
-against a domain only you know about, not something to leave running long-term. If OAuth ends up being worth
-the investment later (e.g. to support both clients properly, or multiple customers), that's a separate, larger
-piece of work than anything here today.
-
 ## Deploying
 
 See [`deploy/ec2/README.md`](deploy/ec2/README.md) for standing up this exact
@@ -149,7 +137,6 @@ customers who don't have AWS access.
   path to Vision One in this codebase.
 - The Vision One API key and the MCP bearer token are both secrets, loaded from `.env` — never commit the real
   `.env` file (it's gitignored).
-- `MCP_REQUIRE_AUTH=false` removes the only protection this server has (see "Connecting ChatGPT" above) — treat it as a deliberate, temporary testing choice, not a default.
 - This is a personal learning project, not an officially supported Trend Micro integration. For production use,
   prefer the [official Vision One MCP server](https://github.com/trendmicro/vision-one-mcp-server).
 

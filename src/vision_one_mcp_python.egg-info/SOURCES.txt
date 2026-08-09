@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+src/vision_one_mcp/__init__.py
+src/vision_one_mcp/auth_middleware.py
+src/vision_one_mcp/client.py
+src/vision_one_mcp/config.py
+src/vision_one_mcp/server.py
+src/vision_one_mcp_python.egg-info/PKG-INFO
+src/vision_one_mcp_python.egg-info/SOURCES.txt
+src/vision_one_mcp_python.egg-info/dependency_links.txt
+src/vision_one_mcp_python.egg-info/requires.txt
+src/vision_one_mcp_python.egg-info/top_level.txt
+tests/test_client.py
+tests/test_config.py
