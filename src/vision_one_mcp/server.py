@@ -14,6 +14,8 @@ from typing import Any
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
+from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
@@ -27,7 +29,20 @@ logger = logging.getLogger("vision_one_mcp")
 settings = load_settings()
 client = VisionOneClient(settings.vision_one_api_key, settings.vision_one_base_url)
 
-mcp = FastMCP("vision-one-mcp-python", json_response=True)
+# FastMCP has its own internal `host` setting (separate from the uvicorn host/port we
+# configure below) that defaults to "127.0.0.1". If left at that default, FastMCP
+# auto-enables DNS-rebinding protection scoped to loopback addresses only -- meaning
+# the /mcp endpoint (unlike /healthz, which bypasses this entirely) silently rejects
+# any real Host/Origin header once this is actually reached through Caddy on a real
+# domain. That's not specific to ChatGPT; it would reject Claude Desktop too. Since TLS
+# termination happens at Caddy and this server is meant to be reached from arbitrary
+# public clients, disable this check explicitly rather than relying on the loopback
+# auto-detection to do (or not do) the right thing.
+mcp = FastMCP(
+    "vision-one-mcp-python",
+    json_response=True,
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+)
 
 
 @mcp.tool()
@@ -120,6 +135,19 @@ def build_app():
             "Anyone who can reach it can read Vision One Workbench/Threat Intel data through "
             "it. Only do this for local/trusted-network testing (e.g. ChatGPT Developer Mode)."
         )
+    # Added last so it ends up outermost: Starlette wraps middleware in reverse order of
+    # add_middleware() calls, and CORS preflight (OPTIONS) requests never carry the
+    # Authorization header, so CORS has to be handled before BearerAuthMiddleware would
+    # otherwise reject them. Browser-based MCP clients (this is what several ChatGPT
+    # connection failures turned out to be) also need Mcp-Session-Id explicitly exposed --
+    # browsers hide custom response headers cross-origin unless listed here.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["Mcp-Session-Id"],
+    )
     return app
 
 
