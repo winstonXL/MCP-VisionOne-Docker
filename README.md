@@ -14,13 +14,44 @@ scoped to Docker (no Kubernetes for now).
 - **Language:** Python (using the official [`mcp`](https://github.com/modelcontextprotocol/python-sdk) SDK's `FastMCP`)
 - **Transport:** Streamable HTTP (required for remote/hosted MCP servers — Claude Desktop's custom connectors
   do not support stdio for remote servers)
-- **Auth:** Static bearer token by default (checked by a small ASGI middleware), or fully disabled via `MCP_REQUIRE_AUTH=false` for clients that can't present one (see [Connecting ChatGPT](#connecting-chatgpt-developer-mode) below)
-- **Scope (v0.1):** Read-only tools against two Vision One API domains:
-  - **Workbench** — list alerts, get alert detail
-  - **Threat Intelligence** — list Suspicious Object List entries, list Threat Intelligence Feed indicators
+- **Auth:** Static bearer token by default (checked by a small ASGI middleware), or fully disabled via
+  `MCP_REQUIRE_AUTH=false` for clients that can't present one (see
+  [Connecting ChatGPT](#connecting-chatgpt-developer-mode) below)
 - **Packaging:** Just Docker — a single container plus [Caddy](https://caddyserver.com/) as a reverse proxy
-  for automatic HTTPS. No Kubernetes/Helm for now; that may come back later, but the current goal is to get
-  comfortable with the MCP + Docker + remote-hosting pieces first.
+  for automatic HTTPS. No Kubernetes/Helm for now.
+
+## Available tools
+
+Everything this server exposes is read-only — there is no code path anywhere in this repo that can change,
+create, or delete anything in Vision One.
+
+| Tool | Vision One area | What it does |
+| --- | --- | --- |
+| `workbench_alerts_list` | Workbench | List alerts, optionally filtered by time range and investigation status |
+| `workbench_alert_detail_get` | Workbench | Get full detail for a single alert by ID |
+| `threatintel_suspicious_objects_list` | Threat Intelligence | List entries in the Suspicious Object List (domains, IPs, file hashes, URLs, email addresses) |
+| `threatintel_suspicious_object_exceptions_list` | Threat Intelligence | List entries in the Exception List (objects explicitly excluded from suspicious-object matching) |
+| `endpoint_security_endpoints_list` | Endpoint Security | List managed endpoints/devices, with sorting, field selection, and filtering |
+| `crem_vulnerable_devices_list` | Cyber Risk Exposure Management (CREM) | List devices with detected vulnerabilities (CVEs), with sorting and filtering |
+
+All list tools accept a `top` parameter capping how many results come back (default 50), and most accept a raw
+`filter_query` string passed straight through as Vision One's `TMV1-Filter` header for further narrowing.
+
+## Vision One API key permissions required
+
+The API key configured via `VISION_ONE_API_KEY` needs read access to each area a tool touches. In the Vision One
+role editor:
+
+- **Workbench** — view access, for `workbench_alerts_list` / `workbench_alert_detail_get`
+- **Threat Intelligence** — view access, for both `threatintel_*` tools
+- **Dashboards & Reports → Reports** — **View**, **Configure and download** — required for
+  `endpoint_security_endpoints_list` and `crem_vulnerable_devices_list`. This was confirmed directly against a
+  live tenant; it's not the permission category you'd necessarily expect for endpoint/device data, but it's
+  what these two calls actually require. Every call this project makes against it is a plain HTTP GET regardless
+  of what the permission is named.
+
+Give the key the minimum above rather than a broad/admin role — this server only ever issues GET requests, so it
+never needs write permissions anywhere.
 
 ## Why Streamable HTTP (not Lambda)
 
@@ -31,31 +62,31 @@ container keeps a warm process with open connections, which is what Streamable H
 ## Architecture
 
 ```
-Claude Desktop (remote MCP custom connector)
-        |  HTTPS + Bearer token
+Claude Desktop / ChatGPT (remote MCP client)
+        |  HTTPS + Bearer token (or no auth, see below)
         v
 Caddy (automatic TLS via Let's Encrypt)
         |
         v
 vision-one-mcp-python container
    - Streamable HTTP MCP server (FastMCP)
-   - Bearer-token auth middleware
+   - Bearer-token auth middleware (optional)
+   - CORS middleware (for browser-based MCP clients)
         |  HTTPS + Vision One API key
         v
 Trend Vision One REST API (api.<region>.xdr.trendmicro.com)
 ```
 
-See [docs/architecture.md](docs/architecture.md) for the full diagram and data flow notes.
+See `docs/architecture.md` for the full diagram and data flow notes, including why DNS-rebinding protection had
+to be explicitly disabled for this to work behind a real domain at all.
 
 ## Repo layout
 
 ```
 src/vision_one_mcp/     Python package: MCP server, Vision One client, auth middleware, config
-tests/                  Unit tests (mocked HTTP, no live Vision One calls)
 Dockerfile              Container image build
 docker-compose.yml      App container + Caddy reverse proxy (local dev or production)
 Caddyfile               Caddy config: reverse proxy + automatic HTTPS
-deploy/ec2/             Guide + script for running this on a plain EC2 instance
 docs/                   Architecture notes and diagram
 ```
 
@@ -65,15 +96,9 @@ docs/                   Architecture notes and diagram
 cp .env.example .env
 # edit .env: set VISION_ONE_API_KEY, VISION_ONE_REGION, MCP_BEARER_TOKEN
 
-pip install -e ".[dev]"
+pip install -e .
 python -m vision_one_mcp.server
 # server listening on http://0.0.0.0:8000/mcp
-```
-
-Run the test suite (no live API calls, everything is mocked):
-
-```bash
-pytest
 ```
 
 ## Running in Docker
@@ -85,71 +110,61 @@ docker build -t vision-one-mcp-python:latest .
 docker run --rm -p 8000:8000 --env-file .env vision-one-mcp-python:latest
 ```
 
-With Caddy in front (matches the production setup — see [Deploying](#deploying) below):
+With Caddy in front (the production setup — automatic HTTPS via Let's Encrypt):
 
 ```bash
 cp .env.example .env
 # edit .env, including CADDY_DOMAIN and CADDY_EMAIL
+
 docker compose up -d --build
+docker compose logs -f caddy   # watch it obtain the certificate
 ```
+
+Point DNS for `CADDY_DOMAIN` at the host before starting Caddy, and open ports 80 (ACME HTTP-01 challenge) and
+443 (the actual MCP endpoint) in the security group. The app container never publishes a port to the host
+directly — only Caddy is internet-facing.
 
 ## Connecting Claude Desktop
 
 Custom connectors via remote MCP require a **public HTTPS URL** — plain HTTP or a self-signed cert will not
-validate. For local testing before you have real TLS, tunnel it (e.g. `ngrok http 8000`) or use the
-[`mcp-remote`](https://github.com/geelen/mcp-remote) stdio bridge.
-
-Once deployed behind real TLS (see [Deploying](#deploying) below):
+validate.
 
 1. In Claude Desktop: **Settings → Connectors → Add custom connector**
 2. URL: `https://<your-host>/mcp`
 3. Advanced settings → set the bearer token you configured as the connector's auth header
    (`Authorization: Bearer <MCP_BEARER_TOKEN>`)
 
-Requires org/admin permission to add custom connectors in some Claude workspaces — if you don't have that,
-see the ChatGPT path below instead.
+Requires org/admin permission to add custom connectors in some Claude workspaces — if you don't have that, see
+the ChatGPT path below instead.
 
 ## Connecting ChatGPT (Developer Mode)
 
-ChatGPT speaks the same Streamable HTTP MCP transport, so the server itself doesn't need to change — but its
-Developer Mode custom connectors only support **OAuth or no-auth**, not a static bearer token. There's no
-"advanced settings, paste a token" option like Claude Desktop has. For testing, run this server with auth
-switched off:
+ChatGPT speaks the same Streamable HTTP MCP transport, but its Developer Mode custom connectors only support
+**OAuth or no-auth** — not a static bearer token. For this project, run with auth switched off:
 
 ```bash
 # in .env
 MCP_REQUIRE_AUTH=false
-# MCP_BEARER_TOKEN can be left blank; it's ignored
 ```
 
-Then, in ChatGPT:
+Then in ChatGPT: Settings → Apps & Connectors → Advanced → Developer mode → add a custom connector pointing at
+`https://<your-host>/mcp`, authentication set to **No authentication**.
 
-1. Enable **Developer Mode**: Settings → Apps & Connectors → Advanced → Developer mode. (On an individual
-   paid plan this is self-service; on a work/Enterprise workspace, an admin may need to enable it first — the
-   same kind of restriction you may be hitting in Claude, so check this before going further.)
-2. Add a custom connector, pointing at `https://<your-host>/mcp`, authentication set to **No authentication**.
-3. ChatGPT should list this server's four read-only tools once connected.
+**If you add or change tools later and ChatGPT keeps showing the old list:** this server declares
+`listChanged: false` at the MCP protocol level, meaning it tells clients up front not to expect the tool list to
+change mid-session — so ChatGPT has no reason to re-fetch it once a connector session is established. Remove
+and re-add the connector (not just start a new chat) to force a fresh handshake and pick up new tools.
 
-Running without auth means anyone who can reach the URL can call those tools — fine for a short-lived test
-against a domain only you know about, not something to leave running long-term. If OAuth ends up being worth
-the investment later (e.g. to support both clients properly, or multiple customers), that's a separate, larger
-piece of work than anything here today.
-
-## Deploying
-
-See [`deploy/ec2/README.md`](deploy/ec2/README.md) for standing up this exact
-`docker-compose.yml` (app + Caddy) on a fresh EC2 instance, including security group
-settings and DNS/certificate setup. There's nothing AWS-specific in the compose file
-itself — the same steps work on any Docker host, which is the plan for handing this to
-customers who don't have AWS access.
+Running without auth means anyone who can reach the URL can call every tool above — fine for short-lived testing
+against a domain only you know about, not something to leave running long-term.
 
 ## Security notes
 
-- Runs read-only by default and, in this v0.1 scope, *only* exposes read-only tools — there is no write/action
-  path to Vision One in this codebase.
+- Read-only by design: no write/action path to Vision One exists anywhere in this codebase.
 - The Vision One API key and the MCP bearer token are both secrets, loaded from `.env` — never commit the real
   `.env` file (it's gitignored).
-- `MCP_REQUIRE_AUTH=false` removes the only protection this server has (see "Connecting ChatGPT" above) — treat it as a deliberate, temporary testing choice, not a default.
+- `MCP_REQUIRE_AUTH=false` removes the only protection this server has — treat it as a deliberate, temporary
+  testing choice, not a default.
 - This is a personal learning project, not an officially supported Trend Micro integration. For production use,
   prefer the [official Vision One MCP server](https://github.com/trendmicro/vision-one-mcp-server).
 

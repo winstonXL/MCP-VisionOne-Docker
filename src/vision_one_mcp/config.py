@@ -13,8 +13,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Official Vision One regions (matches the region list used by Trend Micro's own
-# tooling, e.g. the official Go MCP server and the API cookbook).
 REGION_BASE_URLS: dict[str, str] = {
     "us": "https://api.xdr.trendmicro.com",
     "eu": "https://api.eu.xdr.trendmicro.com",

@@ -9,6 +9,8 @@ trimmed down to GET-only calls:
   - GET /v3.0/workbench/alerts/{id}                 (single alert detail)
   - GET /v3.0/threatintel/suspiciousObjects         (Suspicious Object List, paginated)
   - GET /v3.0/threatintel/suspiciousObjectExceptions (Exception List, paginated)
+  - GET /v3.0/endpointSecurity/endpoints            (managed endpoints/devices, paginated)
+  - GET /v3.0/asrm/vulnerableDevices                (devices with detected CVEs, paginated)
 
 No write/action endpoints (e.g. isolating an endpoint, adding a suspicious object, updating
 alert status) are implemented here on purpose — this server is read-only by design.
@@ -147,3 +149,53 @@ class VisionOneClient:
         self, *, top: int = DEFAULT_PAGE_SIZE
     ) -> list[dict[str, Any]]:
         return await self._get_items("/v3.0/threatintel/suspiciousObjectExceptions", max_items=top)
+
+    # -- Endpoint Security -----------------------------------------------------------
+
+    async def list_endpoints(
+        self,
+        *,
+        order_by: str | None = None,
+        select: str | None = None,
+        filter_query: str | None = None,
+        top: int = DEFAULT_PAGE_SIZE,
+    ) -> list[dict[str, Any]]:
+        """List managed endpoints (devices) known to Vision One Endpoint Security."""
+        params: dict[str, Any] = {"top": top}
+        if order_by:
+            params["orderBy"] = order_by
+        if select:
+            params["select"] = select
+
+        headers: dict[str, str] = {}
+        if filter_query:
+            headers["TMV1-Filter"] = filter_query
+
+        return await self._get_items(
+            "/v3.0/endpointSecurity/endpoints", params=params, headers=headers, max_items=top
+        )
+
+    # -- Cyber Risk Exposure Management (CREM / ASRM) --------------------------------
+
+    async def list_vulnerable_devices(
+        self,
+        *,
+        order_by: str | None = None,
+        cve_detection_status: str | None = None,
+        filter_query: str | None = None,
+        top: int = DEFAULT_PAGE_SIZE,
+    ) -> list[dict[str, Any]]:
+        """List devices with detected vulnerabilities (CVEs), per Attack Surface Risk Management."""
+        params: dict[str, Any] = {"top": top}
+        if order_by:
+            params["orderBy"] = order_by
+        if cve_detection_status:
+            params["cveDetectionStatus"] = cve_detection_status
+
+        headers: dict[str, str] = {}
+        if filter_query:
+            headers["TMV1-Filter"] = filter_query
+
+        return await self._get_items(
+            "/v3.0/asrm/vulnerableDevices", params=params, headers=headers, max_items=top
+        )

@@ -1,10 +1,5 @@
 """Entry point: a read-only FastMCP server for Trend Vision One, served over Streamable HTTP.
-
-Run directly for local development:
-
-    python -m vision_one_mcp.server
-
-Or via the Dockerfile / docker-compose.yml in this repo for a real deployment.
+   Run via the Dockerfile / docker-compose.yml in this repo for a full deployment.
 """
 
 from __future__ import annotations
@@ -29,15 +24,6 @@ logger = logging.getLogger("vision_one_mcp")
 settings = load_settings()
 client = VisionOneClient(settings.vision_one_api_key, settings.vision_one_base_url)
 
-# FastMCP has its own internal `host` setting (separate from the uvicorn host/port we
-# configure below) that defaults to "127.0.0.1". If left at that default, FastMCP
-# auto-enables DNS-rebinding protection scoped to loopback addresses only -- meaning
-# the /mcp endpoint (unlike /healthz, which bypasses this entirely) silently rejects
-# any real Host/Origin header once this is actually reached through Caddy on a real
-# domain. That's not specific to ChatGPT; it would reject Claude Desktop too. Since TLS
-# termination happens at Caddy and this server is meant to be reached from arbitrary
-# public clients, disable this check explicitly rather than relying on the loopback
-# auto-detection to do (or not do) the right thing.
 mcp = FastMCP(
     "vision-one-mcp-python",
     json_response=True,
@@ -113,6 +99,59 @@ async def threatintel_suspicious_object_exceptions_list(top: int = 50) -> list[d
         raise
 
 
+@mcp.tool()
+async def endpoint_security_endpoints_list(
+    order_by: str | None = None,
+    select: str | None = None,
+    filter_query: str | None = None,
+    top: int = 50,
+) -> list[dict[str, Any]]:
+    """List endpoints (managed devices) known to Trend Vision One Endpoint Security.
+
+    Args:
+        order_by: Vision One orderBy expression, e.g. "lastActionDateTime desc".
+        select: Comma-separated list of fields to include in the response, to trim payload size.
+        filter_query: A raw TMV1-Filter expression, e.g. "endpointName eq 'DESKTOP-1'". Omit for no filter.
+        top: Maximum number of endpoints to return (across pagination). Default 50.
+    """
+    try:
+        return await client.list_endpoints(
+            order_by=order_by, select=select, filter_query=filter_query, top=top
+        )
+    except VisionOneApiError as exc:
+        logger.warning("endpoint_security_endpoints_list failed: %s", exc)
+        raise
+
+
+@mcp.tool()
+async def crem_vulnerable_devices_list(
+    order_by: str | None = None,
+    cve_detection_status: str | None = None,
+    filter_query: str | None = None,
+    top: int = 50,
+) -> list[dict[str, Any]]:
+    """List devices with detected vulnerabilities (CVEs), per Trend Vision One Attack Surface
+    Risk Management / Cyber Risk Exposure Management.
+
+    Args:
+        order_by: Vision One orderBy expression, e.g. "riskScore desc".
+        cve_detection_status: Filter by CVE detection status (exact accepted values depend on
+            your Vision One tenant -- check there if a value is rejected).
+        filter_query: A raw TMV1-Filter expression for additional filtering.
+        top: Maximum number of devices to return (across pagination). Default 50.
+    """
+    try:
+        return await client.list_vulnerable_devices(
+            order_by=order_by,
+            cve_detection_status=cve_detection_status,
+            filter_query=filter_query,
+            top=top,
+        )
+    except VisionOneApiError as exc:
+        logger.warning("crem_vulnerable_devices_list failed: %s", exc)
+        raise
+
+
 async def _healthz(_request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
@@ -135,12 +174,6 @@ def build_app():
             "Anyone who can reach it can read Vision One Workbench/Threat Intel data through "
             "it. Only do this for local/trusted-network testing (e.g. ChatGPT Developer Mode)."
         )
-    # Added last so it ends up outermost: Starlette wraps middleware in reverse order of
-    # add_middleware() calls, and CORS preflight (OPTIONS) requests never carry the
-    # Authorization header, so CORS has to be handled before BearerAuthMiddleware would
-    # otherwise reject them. Browser-based MCP clients (this is what several ChatGPT
-    # connection failures turned out to be) also need Mcp-Session-Id explicitly exposed --
-    # browsers hide custom response headers cross-origin unless listed here.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
