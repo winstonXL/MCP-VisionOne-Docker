@@ -33,6 +33,7 @@ create, or delete anything in Vision One.
 | `threatintel_suspicious_object_exceptions_list` | Threat Intelligence | List entries in the Exception List (objects explicitly excluded from suspicious-object matching) |
 | `endpoint_security_endpoints_list` | Endpoint Security | List managed endpoints/devices, with sorting, field selection, and filtering |
 | `crem_vulnerable_devices_list` | Cyber Risk Exposure Management (CREM) | List devices with detected vulnerabilities (CVEs), with sorting and filtering |
+| `crem_high_risk_users_list` | Cyber Risk Exposure Management (CREM) | List users with elevated risk scores, including the risky events (e.g. leaked credentials, account compromise) behind each score |
 
 All list tools accept a `top` parameter capping how many results come back (default 50), and most accept a raw
 `filter_query` string passed straight through as Vision One's `TMV1-Filter` header for further narrowing.
@@ -48,7 +49,8 @@ role editor:
   `endpoint_security_endpoints_list` and `crem_vulnerable_devices_list`. This was confirmed directly against a
   live tenant; it's not the permission category you'd necessarily expect for endpoint/device data, but it's
   what these two calls actually require. Every call this project makes against it is a plain HTTP GET regardless
-  of what the permission is named.
+  of what the permission is named. `crem_high_risk_users_list` hits the same `/v3.0/asrm/*` API family, so it
+  likely needs this same permission — not yet confirmed against a live tenant, so verify before relying on it.
 
 Give the key the minimum above rather than a broad/admin role — this server only ever issues GET requests, so it
 never needs write permissions anywhere.

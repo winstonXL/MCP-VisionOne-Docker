@@ -11,6 +11,7 @@ trimmed down to GET-only calls:
   - GET /v3.0/threatintel/suspiciousObjectExceptions (Exception List, paginated)
   - GET /v3.0/endpointSecurity/endpoints            (managed endpoints/devices, paginated)
   - GET /v3.0/asrm/vulnerableDevices                (devices with detected CVEs, paginated)
+  - GET /v3.0/asrm/highRiskUsers                    (users with elevated risk scores, paginated)
 
 No write/action endpoints (e.g. isolating an endpoint, adding a suspicious object, updating
 alert status) are implemented here on purpose — this server is read-only by design.
@@ -198,4 +199,28 @@ class VisionOneClient:
 
         return await self._get_items(
             "/v3.0/asrm/vulnerableDevices", params=params, headers=headers, max_items=top
+        )
+
+    async def list_high_risk_users(
+        self,
+        *,
+        order_by: str | None = None,
+        filter_query: str | None = None,
+        top: int = DEFAULT_PAGE_SIZE,
+    ) -> list[dict[str, Any]]:
+        """List users with elevated Vision One risk scores, per Attack Surface Risk Management.
+
+        Each entry includes the user's overall riskScore plus the individual riskyEvents
+        (e.g. leaked credentials, account compromise indicators) that contributed to it.
+        """
+        params: dict[str, Any] = {"top": top}
+        if order_by:
+            params["orderBy"] = order_by
+
+        headers: dict[str, str] = {}
+        if filter_query:
+            headers["TMV1-Filter"] = filter_query
+
+        return await self._get_items(
+            "/v3.0/asrm/highRiskUsers", params=params, headers=headers, max_items=top
         )

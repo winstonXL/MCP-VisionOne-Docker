@@ -152,6 +152,31 @@ async def crem_vulnerable_devices_list(
         raise
 
 
+@mcp.tool()
+async def crem_high_risk_users_list(
+    order_by: str | None = None,
+    filter_query: str | None = None,
+    top: int = 50,
+) -> list[dict[str, Any]]:
+    """List users with elevated Vision One risk scores, per Attack Surface Risk Management /
+    Cyber Risk Exposure Management. Each entry includes the user's overall riskScore plus the
+    individual riskyEvents (e.g. leaked credentials, account compromise indicators) that
+    contributed to it.
+
+    Args:
+        order_by: Vision One orderBy expression, e.g. "riskScore desc".
+        filter_query: A raw TMV1-Filter expression for additional filtering.
+        top: Maximum number of users to return (across pagination). Default 50.
+    """
+    try:
+        return await client.list_high_risk_users(
+            order_by=order_by, filter_query=filter_query, top=top
+        )
+    except VisionOneApiError as exc:
+        logger.warning("crem_high_risk_users_list failed: %s", exc)
+        raise
+
+
 async def _healthz(_request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
