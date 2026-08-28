@@ -177,6 +177,68 @@ async def crem_high_risk_users_list(
         raise
 
 
+@mcp.tool()
+async def crem_discovered_domain_accounts_list(
+    order_by: str | None = None,
+    filter_query: str | None = None,
+    top: int = 50,
+) -> list[dict[str, Any]]:
+    """List domain accounts discovered by Trend Vision One Attack Surface Risk Management
+    (accounts found across your environment via asset discovery, independent of whether
+    they're actively managed).
+
+    Args:
+        order_by: Vision One orderBy expression, e.g. "riskLevel desc".
+        filter_query: A raw TMV1-Filter expression for additional filtering.
+        top: Maximum number of accounts to return (across pagination). Default 50.
+    """
+    try:
+        return await client.list_attack_surface_domain_accounts(
+            order_by=order_by, filter_query=filter_query, top=top
+        )
+    except VisionOneApiError as exc:
+        logger.warning("crem_discovered_domain_accounts_list failed: %s", exc)
+        raise
+
+
+@mcp.tool()
+async def crem_discovered_devices_list(
+    order_by: str | None = None,
+    filter_query: str | None = None,
+    top: int = 50,
+    last_detected_start: str | None = None,
+    last_detected_end: str | None = None,
+    first_seen_start: str | None = None,
+    first_seen_end: str | None = None,
+) -> list[dict[str, Any]]:
+    """List devices discovered by Trend Vision One Attack Surface Risk Management (asset
+    discovery -- devices seen in your environment, independent of whether they're actively
+    managed by an endpoint agent).
+
+    Args:
+        order_by: Vision One orderBy expression, e.g. "riskLevel desc".
+        filter_query: A raw TMV1-Filter expression for additional filtering.
+        top: Maximum number of devices to return (across pagination). Default 50.
+        last_detected_start: ISO 8601 start of the "last detected" time range. Omit for no lower bound.
+        last_detected_end: ISO 8601 end of the "last detected" time range. Omit to default to "now".
+        first_seen_start: ISO 8601 start of the "first seen" time range. Omit for no lower bound.
+        first_seen_end: ISO 8601 end of the "first seen" time range. Omit to default to "now".
+    """
+    try:
+        return await client.list_attack_surface_devices(
+            order_by=order_by,
+            filter_query=filter_query,
+            top=top,
+            last_detected_start=last_detected_start,
+            last_detected_end=last_detected_end,
+            first_seen_start=first_seen_start,
+            first_seen_end=first_seen_end,
+        )
+    except VisionOneApiError as exc:
+        logger.warning("crem_discovered_devices_list failed: %s", exc)
+        raise
+
+
 async def _healthz(_request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 

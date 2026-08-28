@@ -12,6 +12,8 @@ trimmed down to GET-only calls:
   - GET /v3.0/endpointSecurity/endpoints            (managed endpoints/devices, paginated)
   - GET /v3.0/asrm/vulnerableDevices                (devices with detected CVEs, paginated)
   - GET /v3.0/asrm/highRiskUsers                    (users with elevated risk scores, paginated)
+  - GET /v3.0/asrm/attackSurfaceDomainAccounts       (discovered domain accounts, paginated)
+  - GET /v3.0/asrm/attackSurfaceDevices              (discovered devices, paginated)
 
 No write/action endpoints (e.g. isolating an endpoint, adding a suspicious object, updating
 alert status) are implemented here on purpose — this server is read-only by design.
@@ -223,4 +225,56 @@ class VisionOneClient:
 
         return await self._get_items(
             "/v3.0/asrm/highRiskUsers", params=params, headers=headers, max_items=top
+        )
+
+    async def list_attack_surface_domain_accounts(
+        self,
+        *,
+        order_by: str | None = None,
+        filter_query: str | None = None,
+        top: int = DEFAULT_PAGE_SIZE,
+    ) -> list[dict[str, Any]]:
+        """List domain accounts discovered by Attack Surface Risk Management."""
+        params: dict[str, Any] = {"top": top}
+        if order_by:
+            params["orderBy"] = order_by
+
+        headers: dict[str, str] = {}
+        if filter_query:
+            headers["TMV1-Filter"] = filter_query
+
+        return await self._get_items(
+            "/v3.0/asrm/attackSurfaceDomainAccounts", params=params, headers=headers, max_items=top
+        )
+
+    async def list_attack_surface_devices(
+        self,
+        *,
+        order_by: str | None = None,
+        filter_query: str | None = None,
+        top: int = DEFAULT_PAGE_SIZE,
+        last_detected_start: str | None = None,
+        last_detected_end: str | None = None,
+        first_seen_start: str | None = None,
+        first_seen_end: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """List devices discovered by Attack Surface Risk Management (asset discovery)."""
+        params: dict[str, Any] = {"top": top}
+        if order_by:
+            params["orderBy"] = order_by
+        if last_detected_start:
+            params["lastDetectedStartDateTime"] = _to_utc_iso(last_detected_start)
+        if last_detected_end:
+            params["lastDetectedEndDateTime"] = _to_utc_iso(last_detected_end)
+        if first_seen_start:
+            params["firstSeenStartDateTime"] = _to_utc_iso(first_seen_start)
+        if first_seen_end:
+            params["firstSeenEndDateTime"] = _to_utc_iso(first_seen_end)
+
+        headers: dict[str, str] = {}
+        if filter_query:
+            headers["TMV1-Filter"] = filter_query
+
+        return await self._get_items(
+            "/v3.0/asrm/attackSurfaceDevices", params=params, headers=headers, max_items=top
         )
