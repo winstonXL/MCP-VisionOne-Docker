@@ -1,8 +1,7 @@
 # vision-one-mcp-python
 
-A from-scratch Python [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for
-[Trend Vision One](https://www.trendmicro.com/en_us/business/products/detection-response/xdr.html), built as a
-learning project to get hands-on with MCP, containerized Python services, and remote deployment — currently
+A Python [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for
+[Trend Vision One](https://www.trendmicro.com/en_us/business/products/detection-response/xdr.html), built to introduce easy-to-deploy containerized Python services for customer running Endpoint Security and CREM within their Vision One Tenant. Currently
 scoped to Docker (no Kubernetes for now).
 
 > Trend Micro publishes an official Go-based MCP server ([trendmicro/vision-one-mcp-server](https://github.com/trendmicro/vision-one-mcp-server))
@@ -47,24 +46,10 @@ All list tools accept a `top` parameter capping how many results come back (defa
 The API key configured via `VISION_ONE_API_KEY` needs read access to each area a tool touches. In the Vision One
 role editor:
 
-- **Workbench** — view access, for `workbench_alerts_list` / `workbench_alert_detail_get`
-- **Threat Intelligence** — view access, for both `threatintel_*` tools
-- **Dashboards & Reports → Reports** — **View**, **Configure and download** — required for
-  `endpoint_security_endpoints_list` and `crem_vulnerable_devices_list`. This was confirmed directly against a
-  live tenant; it's not the permission category you'd necessarily expect for endpoint/device data, but it's
-  what these two calls actually require. Every call this project makes against it is a plain HTTP GET regardless
-  of what the permission is named. `crem_high_risk_users_list`, `crem_discovered_domain_accounts_list`, and
-  `crem_discovered_devices_list` all hit the same `/v3.0/asrm/*` API family, so they likely need this same
-  permission — not yet confirmed against a live tenant, so verify before relying on it.
+- **Dashboards & Reports → Reports** — **View**, **Configure and download** — required for full functionality. Scoped to Least privelege principals. 
 
-Give the key the minimum above rather than a broad/admin role — this server only ever issues GET requests, so it
-never needs write permissions anywhere.
-
-## Why Streamable HTTP (not Lambda)
-
-MCP's remote transport is a long-lived, potentially streaming HTTP connection. AWS Lambda is a poor fit for
-that — it's a short-lived, 15-minute-max function invocation model, not a persistent server. A plain Docker
-container keeps a warm process with open connections, which is what Streamable HTTP wants.
+This server only ever issues GET requests, so it
+never needs write permissions anywhere. This project is scoped to Read-Only for now. 
 
 ## Architecture
 
@@ -97,17 +82,6 @@ Caddyfile               Caddy config: reverse proxy + automatic HTTPS
 docs/                   Architecture notes and diagram
 ```
 
-## Quickstart (local)
-
-```bash
-cp .env.example .env
-# edit .env: set VISION_ONE_API_KEY, VISION_ONE_REGION, MCP_BEARER_TOKEN
-
-pip install -e .
-python -m vision_one_mcp.server
-# server listening on http://0.0.0.0:8000/mcp
-```
-
 ## Running in Docker
 
 Standalone, without Caddy/TLS (fine for local testing over plain HTTP):
@@ -124,11 +98,11 @@ cp .env.example .env
 # edit .env, including CADDY_DOMAIN and CADDY_EMAIL
 
 docker compose up -d --build
-docker compose logs -f caddy   # watch it obtain the certificate
+docker compose logs -f caddy   # for verifying certificate retrieval
 ```
 
 Point DNS for `CADDY_DOMAIN` at the host before starting Caddy, and open ports 80 (ACME HTTP-01 challenge) and
-443 (the actual MCP endpoint) in the security group. The app container never publishes a port to the host
+443 (the actual MCP endpoint) on perimeter defenses/security groups. The app container never publishes a port to the host
 directly — only Caddy is internet-facing.
 
 ## Connecting Claude Desktop
@@ -157,22 +131,17 @@ MCP_REQUIRE_AUTH=false
 Then in ChatGPT: Settings → Apps & Connectors → Advanced → Developer mode → add a custom connector pointing at
 `https://<your-host>/mcp`, authentication set to **No authentication**.
 
-**If you add or change tools later and ChatGPT keeps showing the old list:** this server declares
-`listChanged: false` at the MCP protocol level, meaning it tells clients up front not to expect the tool list to
-change mid-session — so ChatGPT has no reason to re-fetch it once a connector session is established. Remove
-and re-add the connector (not just start a new chat) to force a fresh handshake and pick up new tools.
-
 Running without auth means anyone who can reach the URL can call every tool above — fine for short-lived testing
-against a domain only you know about, not something to leave running long-term.
+against a domain only you know about, not something to leave running long-term. If you wish to integrate OAuth, use the following [resources](https://developers.openai.com/plugins/build/auth) provided by OpenAI
 
 ## Security notes
 
 - Read-only by design: no write/action path to Vision One exists anywhere in this codebase.
-- The Vision One API key and the MCP bearer token are both secrets, loaded from `.env` — never commit the real
-  `.env` file (it's gitignored).
+- The Vision One API key and the MCP bearer token are both secrets, loaded from `.env` — never share the real
+  `.env` file.
 - `MCP_REQUIRE_AUTH=false` removes the only protection this server has — treat it as a deliberate, temporary
   testing choice, not a default.
-- This is a personal learning project, not an officially supported Trend Micro integration. For production use,
+- This project is not an officially supported Trend Micro integration. For production use,
   prefer the [official Vision One MCP server](https://github.com/trendmicro/vision-one-mcp-server).
 
 ## License
