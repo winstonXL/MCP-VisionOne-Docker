@@ -5,7 +5,7 @@ A Python [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server 
 scoped to Docker (no Kubernetes for now).
 
 > Trend Micro publishes an official Go-based MCP server ([trendmicro/vision-one-mcp-server](https://github.com/trendmicro/vision-one-mcp-server))
-> that covers far more of the API surface. This project is intentionally a from-scratch, read-only, learning-focused
+> that covers far more of the API surface. This project is intentionally a read-only, easy-to-deploy containerized
 > reimplementation in Python — not a replacement for the official server.
 
 ## What this is
