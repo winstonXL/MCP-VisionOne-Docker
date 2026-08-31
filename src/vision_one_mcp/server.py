@@ -239,6 +239,41 @@ async def crem_discovered_devices_list(
         raise
 
 
+@mcp.tool()
+async def crem_user_risk_profile_get(user_id: str) -> dict[str, Any]:
+    """Get the full Trend Vision One risk profile for a single user, including their overall
+    riskScore and the individual riskyEvents that contributed to it.
+
+    Args:
+        user_id: The user's ID (as returned by crem_high_risk_users_list).
+    """
+    try:
+        return await client.get_high_risk_user(user_id)
+    except VisionOneApiError as exc:
+        logger.warning("crem_user_risk_profile_get failed: %s", exc)
+        raise
+
+
+@mcp.tool()
+async def crem_device_risk_profile_get(
+    device_id: str, risky_event_score: int | None = None
+) -> dict[str, Any]:
+    """Get the full Trend Vision One risk profile for a single device, including its risk
+    factors and vulnerabilities.
+
+    Args:
+        device_id: The device's ID (as returned by crem_vulnerable_devices_list or
+            crem_discovered_devices_list).
+        risky_event_score: Optional minimum score to filter which risky events are included
+            in the response.
+    """
+    try:
+        return await client.get_high_risk_device(device_id, risky_event_score=risky_event_score)
+    except VisionOneApiError as exc:
+        logger.warning("crem_device_risk_profile_get failed: %s", exc)
+        raise
+
+
 async def _healthz(_request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 

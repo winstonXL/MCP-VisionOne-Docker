@@ -36,6 +36,8 @@ create, or delete anything in Vision One.
 | `crem_high_risk_users_list` | Cyber Risk Exposure Management (CREM) | List users with elevated risk scores, including the risky events (e.g. leaked credentials, account compromise) behind each score |
 | `crem_discovered_domain_accounts_list` | Cyber Risk Exposure Management (CREM) | List domain accounts discovered via Attack Surface Risk Management asset discovery |
 | `crem_discovered_devices_list` | Cyber Risk Exposure Management (CREM) | List devices discovered via Attack Surface Risk Management asset discovery, with optional last-detected/first-seen date filtering |
+| `crem_user_risk_profile_get` | Cyber Risk Exposure Management (CREM) | Get the full risk profile for a single user by ID |
+| `crem_device_risk_profile_get` | Cyber Risk Exposure Management (CREM) | Get the full risk profile for a single device by ID, optionally filtering included risky events by minimum score |
 
 All list tools accept a `top` parameter capping how many results come back (default 50), and most accept a raw
 `filter_query` string passed straight through as Vision One's `TMV1-Filter` header for further narrowing.

@@ -14,6 +14,8 @@ trimmed down to GET-only calls:
   - GET /v3.0/asrm/highRiskUsers                    (users with elevated risk scores, paginated)
   - GET /v3.0/asrm/attackSurfaceDomainAccounts       (discovered domain accounts, paginated)
   - GET /v3.0/asrm/attackSurfaceDevices              (discovered devices, paginated)
+  - GET /v3.0/asrm/highRiskUsers/{id}                (single user risk profile)
+  - GET /v3.0/asrm/highRiskDevices/{id}              (single device risk profile)
 
 No write/action endpoints (e.g. isolating an endpoint, adding a suspicious object, updating
 alert status) are implemented here on purpose — this server is read-only by design.
@@ -278,3 +280,21 @@ class VisionOneClient:
         return await self._get_items(
             "/v3.0/asrm/attackSurfaceDevices", params=params, headers=headers, max_items=top
         )
+
+    async def get_high_risk_user(self, user_id: str) -> dict[str, Any]:
+        """Get the full risk profile for a single user."""
+        async with httpx.AsyncClient() as client:
+            return await self._get(client, f"/v3.0/asrm/highRiskUsers/{user_id}")
+
+    async def get_high_risk_device(
+        self, device_id: str, *, risky_event_score: int | None = None
+    ) -> dict[str, Any]:
+        """Get the full risk profile for a single device."""
+        params: dict[str, Any] = {}
+        if risky_event_score is not None:
+            params["riskyEventScore"] = risky_event_score
+
+        async with httpx.AsyncClient() as client:
+            return await self._get(
+                client, f"/v3.0/asrm/highRiskDevices/{device_id}", params=params
+            )
